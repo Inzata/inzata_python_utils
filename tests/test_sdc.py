@@ -254,10 +254,33 @@ class TestSDCClient(unittest.TestCase):
 
       MockStartPips.assert_called_with(['aa'], **{'LOADED_AT': '2020-08-01'})
 
+   @mock.patch('time.sleep', return_value = 1)
+   @mock.patch.object(SDCClient, 'metrics', return_value = {})
+   @mock.patch('inzata_python_utils.sdc.requests.Session')
+   def testToleratesRetries(self, MockSession, MockMetrics, MockSleep):
+      session = MockSession()
+      session.post.return_value = requests.models.Response()
 
+      session.get.side_effect = [
+         MockResponse({"id": "aa", "status": "RUNNING"}, 200),
+         MockResponse({"id": "aa", "status": "RETRY"}, 200),
+         MockResponse({"id": "aa", "status": "RETRYING"}, 200),
+         MockResponse({"id": "aa", "status": "RUNNING"}, 200),
+         MockResponse({"id": "aa", "status": "FINISHED"}, 200)
+      ]
 
+      client = SDCClient(
+         self.hostname,
+         self.port,
+         self.username,
+         self.password,
+         retriesAreOK=True
+      )
 
+      client.report['aa'] = {"started":True}
 
+      client.awaitCompletion(['aa'])
 
-
-
+      self.assertEqual(len(session.get.call_args_list), 5)
+      self.assertFalse(client.report['aa']['error'])
+ 

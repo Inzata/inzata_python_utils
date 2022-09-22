@@ -6,12 +6,13 @@ import json
 
 class SDCClient:
 
-   def __init__(self, hostname, port, username, password):
+   def __init__(self, hostname, port, username, password, retriesAreOK=False):
       self.hostname = hostname
       self.port = port
       self.username = username
       self.password = password
       self.report = dict()
+      self.retriesAreOK = retriesAreOK
       self.login()
 
    def login(self):
@@ -98,6 +99,8 @@ class SDCClient:
                self.report[pipId]['lastStatus'] = status
                runningPipelines.remove(pipId)
                self.report[pipId]['metrics'] = self.metrics(pipId)
+            elif self.retriesAreOK and status.startswith("RETRY"):
+               print("Pipeline " + pipId + " is restarting")
             elif not ((status == 'STARTING') or (status == 'RUNNING') or (status == 'FINISHING')):
                self.report[pipId]['error'] = True
                self.report[pipId]['errorDesc'] = 'error during run'
